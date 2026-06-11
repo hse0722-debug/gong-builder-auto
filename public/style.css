@@ -1,0 +1,19 @@
+* { box-sizing: border-box; }
+body { margin:0; font-family: Arial, 'Noto Sans KR', sans-serif; background:#f4ead8; color:#222; }
+.box { max-width:760px; margin:0 auto; padding:20px; }
+h1 { text-align:center; margin:10px 0; }
+.desc { text-align:center; color:#555; }
+.section { background:#fff7e8; border:1px solid #ead9bd; border-radius:12px; padding:16px; margin:14px 0; box-shadow:0 2px 8px rgba(0,0,0,.04); }
+h2 { margin:0 0 12px; font-size:18px; }
+label { display:block; margin:10px 0 4px; font-weight:bold; }
+input, textarea { width:100%; padding:12px; border:1px solid #d0c0aa; border-radius:8px; font-size:16px; background:white; }
+textarea { resize:vertical; }
+button { border:0; border-radius:8px; padding:10px 14px; margin-top:8px; cursor:pointer; font-weight:bold; background:#777; color:white; }
+.green { background:#4caf50; color:white; }
+.blue { background:#29a8df; color:white; }
+.buttons { display:flex; gap:8px; flex-wrap:wrap; }
+.sid-row { display:grid; grid-template-columns:40px 1fr; gap:8px; align-items:center; margin:8px 0; }
+.sid-row label { margin:0; text-align:center; background:#333; color:white; border-radius:6px; padding:11px 0; }
+.item { background:white; border:1px solid #e3d4bf; border-radius:8px; padding:12px; margin:8px 0; word-break:break-all; }
+.status { color:#345; min-height:22px; }
+#download { display:inline-block; margin-top:10px; padding:10px 14px; border-radius:8px; background:#222; color:white; text-decoration:none; font-weight:bold; }

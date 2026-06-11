@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>총공 빌더 자동검색</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="box">
+    <h1>총공 빌더 자동검색</h1>
+    <p class="desc">곡명/가수명으로 SID를 검색하고, 갤주소와 총공제목을 넣어 총공문을 만듭니다.</p>
+
+    <section class="section">
+      <h2>1. 곡 검색</h2>
+      <input id="keyword" placeholder="예: 아이유 좋은날" />
+      <button class="blue" onclick="autoSearchSid()">SID 자동검색</button>
+      <p id="searchStatus" class="status"></p>
+    </section>
+
+    <section class="section">
+      <h2>2. SID 확인/수정</h2>
+      <div class="sid-row"><label>M</label><input id="melon" placeholder="멜론 SID" /></div>
+      <div class="sid-row"><label>G</label><input id="genie" placeholder="지니 SID" /></div>
+      <div class="sid-row"><label>B</label><input id="bugs" placeholder="벅스 SID" /></div>
+      <div class="sid-row"><label>N</label><input id="vibe" placeholder="바이브 SID" /></div>
+      <div class="sid-row"><label>Y</label><input id="youtube" placeholder="유튜브 ID 또는 링크" /></div>
+    </section>
+
+    <section class="section">
+      <h2>3. 총공 정보</h2>
+      <label>시간</label>
+      <input id="time" placeholder="예: 20:23" />
+      <label>갤주소</label>
+      <input id="gallery" placeholder="https://gall.dcinside.com/..." />
+      <label>총공 제목</label>
+      <input id="title" placeholder="예: [총공명] 보은왔어요" />
+      <button class="green" onclick="addGong()">총공 추가</button>
+    </section>
+
+    <section class="section">
+      <h2>4. 총공 목록</h2>
+      <div id="list"></div>
+    </section>
+
+    <section class="section">
+      <h2>5. 결과</h2>
+      <textarea id="result" rows="12" readonly></textarea>
+      <div class="buttons">
+        <button class="blue" onclick="copyResult()">Copy</button>
+        <button class="green" onclick="makeImage()">To Image</button>
+        <button onclick="clearAll()">전체 삭제</button>
+      </div>
+      <canvas id="canvas" style="display:none"></canvas>
+      <a id="download" style="display:none">이미지 다운로드</a>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
