@@ -9,13 +9,14 @@
 <body>
   <main class="box">
     <h1>총공 빌더 자동검색</h1>
-    <p class="desc">곡명/가수명으로 SID를 검색하고, 갤주소와 총공제목을 넣어 총공문을 만듭니다.</p>
+    <p class="desc">가수명 + 곡명으로 검색한 뒤, 정확한 곡을 직접 선택해서 SID를 넣습니다.</p>
 
     <section class="section">
       <h2>1. 곡 검색</h2>
       <input id="keyword" placeholder="예: 포레스텔라 Armageddon" />
-      <button class="blue" onclick="autoSearchSid()">SID 자동검색</button>
+      <button class="blue" onclick="autoSearchSid()">SID 후보검색</button>
       <p id="searchStatus" class="status"></p>
+      <div id="candidateBox"></div>
     </section>
 
     <section class="section">
@@ -24,17 +25,21 @@
       <div class="sid-row"><label>G</label><input id="genie" placeholder="지니 SID" /></div>
       <div class="sid-row"><label>B</label><input id="bugs" placeholder="벅스 SID" /></div>
       <div class="sid-row"><label>N</label><input id="vibe" placeholder="바이브 SID" /></div>
-      <div class="sid-row"><label>Y</label><input id="youtube" placeholder="유튜브 ID 또는 링크" /></div>
+      <div class="sid-row"><label>Y</label><input id="youtube" placeholder="유튜브 ID 또는 링크 직접 입력" /></div>
     </section>
 
     <section class="section">
       <h2>3. 총공 정보</h2>
+
       <label>시간</label>
       <input id="time" placeholder="예: 20:23" />
+
       <label>갤주소</label>
       <input id="gallery" placeholder="https://gall.dcinside.com/..." />
+
       <label>총공 제목</label>
       <input id="title" placeholder="예: [총공명] 보은왔어요" />
+
       <button class="green" onclick="addGong()">총공 추가</button>
     </section>
 
@@ -46,11 +51,13 @@
     <section class="section">
       <h2>5. 결과</h2>
       <textarea id="result" rows="12" readonly></textarea>
+
       <div class="buttons">
         <button class="blue" onclick="copyResult()">Copy</button>
         <button class="green" onclick="makeImage()">To Image</button>
         <button onclick="clearAll()">전체 삭제</button>
       </div>
+
       <canvas id="canvas" style="display:none"></canvas>
       <a id="download" style="display:none">이미지 다운로드</a>
     </section>
