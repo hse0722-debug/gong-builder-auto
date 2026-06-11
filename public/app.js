@@ -1,227 +1,272 @@
-let gongs = JSON.parse(localStorage.getItem('gongs_auto') || '[]');
-let searchResults = [];
+import fetch from 'node-fetch';
+import * as cheerio from 'cheerio';
 
-function $(id) {
-  return document.getElementById(id);
-}
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125 Safari/537.36';
 
-function escapeHtml(str) {
-  return String(str)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
-
-async function autoSearchSid() {
-  const q = $('keyword').value.trim();
-
-  if (!q) {
-    return alert('가수명 + 곡명을 입력하세요.');
+const SONG_DB = [
+  {
+    artist: '포레스텔라',
+    title: 'Armageddon',
+    melon: '601812679',
+    genie: '114676440',
+    bugs: '131827359',
+    vibe: '102962533'
   }
+];
 
-  $('searchStatus').textContent = '검색 중입니다...';
-  $('searchResults').innerHTML = '';
-
-  try {
-    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.error || '검색 실패');
-    }
-
-    searchResults = data.results || [];
-
-    if (!searchResults.length) {
-      $('searchStatus').textContent = '검색 결과가 없습니다. SID를 직접 입력하세요.';
-      return;
-    }
-
-    $('searchResults').innerHTML = searchResults.map((song, i) => `
-      <button class="search-item" onclick="selectSong(${i})">
-        ${escapeHtml(song.artist)} - ${escapeHtml(song.title)}
-        <small>M:${song.melon || '-'}|G:${song.genie || '-'}|B:${song.bugs || '-'}|N:${song.vibe || '-'}</small>
-      </button>
-    `).join('');
-
-    $('searchStatus').textContent = '곡을 선택하면 SID 4개가 한 번에 입력됩니다.';
-  } catch (e) {
-    $('searchStatus').textContent = '검색 실패: ' + e.message;
-  }
+function clean(text = '') {
+  return String(text).toLowerCase().replace(/\s+/g, '').replace(/[^\w가-힣]/g, '');
 }
 
-function selectSong(i) {
-  const song = searchResults[i];
+function score(q, artist, title) {
+  const query = clean(q);
+  const target = clean(`${artist}${title}`);
+  let s = 0;
 
-  $('keyword').value = `${song.artist}-${song.title}`;
-  $('melon').value = song.melon || '';
-  $('genie').value = song.genie || '';
-  $('bugs').value = song.bugs || '';
-  $('vibe').value = song.vibe || '';
+  if (target.includes(query)) s += 100;
 
-  $('searchStatus').textContent = `${song.artist} - ${song.title} SID 입력 완료`;
-}
-
-function checkSid(site) {
-  const id = $(site).value.trim();
-
-  if (!id) {
-    return alert('SID가 비어 있습니다.');
-  }
-
-  const urls = {
-    melon: `https://www.melon.com/song/detail.htm?songId=${id}`,
-    genie: `https://www.genie.co.kr/detail/songInfo?xgnm=${id}`,
-    bugs: `https://music.bugs.co.kr/track/${id}`,
-    vibe: `https://vibe.naver.com/track/${id}`
-  };
-
-  window.open(urls[site], '_blank');
-}
-
-function dottedName(text = '') {
-  return String(text)
-    .replace(/\s+/g, '')
-    .split('')
-    .join('.');
-}
-
-function parseArtistTitle(keyword = '') {
-  const text = String(keyword).trim();
-
-  if (text.includes('-')) {
-    const [artist, ...rest] = text.split('-');
-
-    return {
-      artist: artist.trim(),
-      title: rest.join('-').trim()
-    };
-  }
-
-  const parts = text.split(/\s+/);
-
-  return {
-    artist: parts[0] || '',
-    title: parts.slice(1).join('')
-  };
-}
-
-function formatGong(g) {
-  const { artist, title } = parseArtistTitle(g.keyword);
-  const artistDot = dottedName(artist);
-  const titleClean = String(title).replace(/\s+/g, '');
-
-  const sidParts = [];
-
-  if (g.sid.melon) sidParts.push(`M:${g.sid.melon}`);
-  if (g.sid.genie) sidParts.push(`G:${g.sid.genie}`);
-  if (g.sid.bugs) sidParts.push(`B:${g.sid.bugs}`);
-  if (g.sid.vibe) sidParts.push(`N:${g.sid.vibe}`);
-
-  return [
-    g.time,
-    artistDot,
-    g.gallery,
-    `총공명 : ${g.title}`,
-    `스밍 : ${artistDot}-${titleClean}`,
-    `SID ${sidParts.join('|')}`
-  ].filter(Boolean).join('\n');
-}
-
-function addGong() {
-  const item = {
-    time: $('time').value.trim(),
-    keyword: $('keyword').value.trim(),
-    gallery: $('gallery').value.trim(),
-    title: $('title').value.trim(),
-    sid: {
-      melon: $('melon').value.trim(),
-      genie: $('genie').value.trim(),
-      bugs: $('bugs').value.trim(),
-      vibe: $('vibe').value.trim()
-    }
-  };
-
-  if (!item.gallery || !item.title) {
-    return alert('갤주소와 총공 제목은 꼭 입력하세요.');
-  }
-
-  if (!item.sid.melon && !item.sid.genie && !item.sid.bugs && !item.sid.vibe) {
-    return alert('SID가 하나 이상 필요합니다.');
-  }
-
-  gongs.push(item);
-  save();
-  render();
-}
-
-function makeText() {
-  return gongs.map(g => formatGong(g)).join('\n\n');
-}
-
-function render() {
-  $('list').innerHTML = gongs.map((g, i) => `
-    <div class="item">
-      <pre>${escapeHtml(formatGong(g))}</pre>
-      <button onclick="removeGong(${i})">삭제</button>
-    </div>
-  `).join('');
-
-  $('result').value = makeText();
-}
-
-function removeGong(i) {
-  gongs.splice(i, 1);
-  save();
-  render();
-}
-
-function save() {
-  localStorage.setItem('gongs_auto', JSON.stringify(gongs));
-}
-
-function clearAll() {
-  if (confirm('전부 삭제할까요?')) {
-    gongs = [];
-    save();
-    render();
-  }
-}
-
-async function copyResult() {
-  $('result').value = makeText();
-  await navigator.clipboard.writeText($('result').value);
-  alert('복사했습니다.');
-}
-
-function makeImage() {
-  const text = makeText() || '내용이 없습니다.';
-  const canvas = $('canvas');
-  const ctx = canvas.getContext('2d');
-  const fontSize = 28;
-  const padding = 40;
-  const lines = text.split('\n');
-
-  canvas.width = 1000;
-  canvas.height = Math.max(400, padding * 2 + lines.length * 42);
-
-  ctx.fillStyle = '#fff8ed';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  ctx.fillStyle = '#222';
-  ctx.font = `${fontSize}px Arial`;
-
-  lines.forEach((line, i) => {
-    ctx.fillText(line, padding, padding + i * 42);
+  q.split(/\s+/).forEach(word => {
+    if (word && target.includes(clean(word))) s += 20;
   });
 
-  const link = $('download');
-  link.href = canvas.toDataURL('image/png');
-  link.download = 'gong-builder.png';
-  link.style.display = 'inline-block';
-  link.textContent = '이미지 다운로드';
+  return s;
 }
 
-render();
+async function getText(url) {
+  const res = await fetch(url, {
+    headers: {
+      'user-agent': UA,
+      'accept-language': 'ko-KR,ko;q=0.9,en-US;q=0.8'
+    },
+    redirect: 'follow'
+  });
+
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return await res.text();
+}
+
+function dbSearch(q) {
+  return SONG_DB
+    .map(song => ({
+      ...song,
+      source: 'DB',
+      score: score(q, song.artist, song.title)
+    }))
+    .filter(song => song.score > 0);
+}
+
+async function searchMelon(q) {
+  try {
+    const html = await getText(`https://www.melon.com/search/total/index.htm?q=${encodeURIComponent(q)}`);
+    const $ = cheerio.load(html);
+    const list = [];
+
+    $('tr').each((_, tr) => {
+      const rowHtml = $.html(tr);
+
+      const id =
+        rowHtml.match(/songId=(\d+)/)?.[1] ||
+        rowHtml.match(/playSong\(['"]?\d+['"]?,\s*['"]?(\d+)['"]?\)/)?.[1];
+
+      if (!id) return;
+
+      const title =
+        $(tr).find('.ellipsis.rank01 a').first().text().trim() ||
+        $(tr).find('.fc_gray').first().text().trim();
+
+      const artist =
+        $(tr).find('.ellipsis.rank02 a').first().text().trim() ||
+        $(tr).find('.checkEllipsis').first().text().trim();
+
+      if (!title && !artist) return;
+
+      list.push({
+        artist,
+        title,
+        melon: id,
+        genie: '',
+        bugs: '',
+        vibe: '',
+        source: 'melon',
+        score: score(q, artist, title)
+      });
+    });
+
+    return list;
+  } catch {
+    return [];
+  }
+}
+
+async function searchGenie(q) {
+  try {
+    const html = await getText(`https://www.genie.co.kr/search/searchMain?query=${encodeURIComponent(q)}`);
+    const $ = cheerio.load(html);
+    const list = [];
+
+    $('tr').each((_, tr) => {
+      const rowHtml = $.html(tr);
+
+      const id =
+        $(tr).attr('songid') ||
+        $(tr).find('[songid]').first().attr('songid') ||
+        rowHtml.match(/xgnm=(\d+)/)?.[1] ||
+        rowHtml.match(/fnPlaySong\(['"]?(\d+)['"]?/)?.[1];
+
+      if (!id) return;
+
+      const title = $(tr).find('.title').first().text().replace('TITLE', '').trim();
+      const artist = $(tr).find('.artist').first().text().trim();
+
+      if (!title && !artist) return;
+
+      list.push({
+        artist,
+        title,
+        melon: '',
+        genie: id,
+        bugs: '',
+        vibe: '',
+        source: 'genie',
+        score: score(q, artist, title)
+      });
+    });
+
+    return list;
+  } catch {
+    return [];
+  }
+}
+
+async function searchBugs(q) {
+  try {
+    const html = await getText(`https://music.bugs.co.kr/search/integrated?q=${encodeURIComponent(q)}`);
+    const $ = cheerio.load(html);
+    const list = [];
+
+    $('tr').each((_, tr) => {
+      const rowHtml = $.html(tr);
+
+      const id =
+        $(tr).attr('data-trackid') ||
+        rowHtml.match(/track\/(\d+)/)?.[1];
+
+      if (!id) return;
+
+      const title = $(tr).find('.title a').first().text().trim();
+      const artist = $(tr).find('.artist a').first().text().trim();
+
+      if (!title && !artist) return;
+
+      list.push({
+        artist,
+        title,
+        melon: '',
+        genie: '',
+        bugs: id,
+        vibe: '',
+        source: 'bugs',
+        score: score(q, artist, title)
+      });
+    });
+
+    return list;
+  } catch {
+    return [];
+  }
+}
+
+async function searchVibe(q) {
+  try {
+    const html = await getText(`https://vibe.naver.com/search?query=${encodeURIComponent(q)}`);
+    const list = [];
+
+    const matches = [...html.matchAll(/track\/(\d+)/g)];
+
+    matches.forEach(m => {
+      list.push({
+        artist: '',
+        title: 'VIBE 검색결과',
+        melon: '',
+        genie: '',
+        bugs: '',
+        vibe: m[1],
+        source: 'vibe',
+        score: 1
+      });
+    });
+
+    return list;
+  } catch {
+    return [];
+  }
+}
+
+function mergeSongs(list) {
+  const map = new Map();
+
+  list.forEach(song => {
+    const key = clean(`${song.artist}${song.title}`) || `${song.source}-${song.melon || song.genie || song.bugs || song.vibe}`;
+
+    if (!map.has(key)) {
+      map.set(key, {
+        artist: song.artist,
+        title: song.title,
+        melon: '',
+        genie: '',
+        bugs: '',
+        vibe: '',
+        score: 0
+      });
+    }
+
+    const item = map.get(key);
+
+    if (song.artist && !item.artist) item.artist = song.artist;
+    if (song.title && !item.title) item.title = song.title;
+
+    if (song.melon) item.melon = song.melon;
+    if (song.genie) item.genie = song.genie;
+    if (song.bugs) item.bugs = song.bugs;
+    if (song.vibe) item.vibe = song.vibe;
+
+    item.score += song.score || 0;
+  });
+
+  return [...map.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+}
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const q = String(req.query.q || '').trim();
+
+  if (!q) {
+    return res.status(400).json({ error: '검색어가 없습니다.' });
+  }
+
+  const [melon, genie, bugs, vibe] = await Promise.all([
+    searchMelon(q),
+    searchGenie(q),
+    searchBugs(q),
+    searchVibe(q)
+  ]);
+
+  const results = mergeSongs([
+    ...dbSearch(q),
+    ...melon,
+    ...genie,
+    ...bugs,
+    ...vibe
+  ]);
+
+  res.status(200).json({
+    query: q,
+    results
+  });
+}
