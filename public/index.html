@@ -9,23 +9,42 @@
 <body>
   <main class="box">
     <h1>총공 빌더 자동검색</h1>
-    <p class="desc">가수명 + 곡명으로 검색한 뒤, 정확한 곡을 직접 선택해서 SID를 넣습니다.</p>
+    <p class="desc">DB에서 먼저 찾고, 없으면 멜론/지니/벅스/바이브에서 실시간 검색합니다.</p>
 
     <section class="section">
       <h2>1. 곡 검색</h2>
       <input id="keyword" placeholder="예: 포레스텔라 Armageddon" />
-      <button class="blue" onclick="autoSearchSid()">SID 후보검색</button>
+      <button class="blue" onclick="autoSearchSid()">SID 검색</button>
       <p id="searchStatus" class="status"></p>
-      <div id="candidateBox"></div>
+      <div id="searchResults"></div>
     </section>
 
     <section class="section">
-      <h2>2. SID 확인/수정</h2>
-      <div class="sid-row"><label>M</label><input id="melon" placeholder="멜론 SID" /></div>
-      <div class="sid-row"><label>G</label><input id="genie" placeholder="지니 SID" /></div>
-      <div class="sid-row"><label>B</label><input id="bugs" placeholder="벅스 SID" /></div>
-      <div class="sid-row"><label>N</label><input id="vibe" placeholder="바이브 SID" /></div>
-      <div class="sid-row"><label>Y</label><input id="youtube" placeholder="유튜브 ID 또는 링크 직접 입력" /></div>
+      <h2>2. SID 확인</h2>
+
+      <div class="sid-row">
+        <label>M</label>
+        <input id="melon" placeholder="멜론 SID" />
+        <button onclick="checkSid('melon')">Check</button>
+      </div>
+
+      <div class="sid-row">
+        <label>G</label>
+        <input id="genie" placeholder="지니 SID" />
+        <button onclick="checkSid('genie')">Check</button>
+      </div>
+
+      <div class="sid-row">
+        <label>B</label>
+        <input id="bugs" placeholder="벅스 SID" />
+        <button onclick="checkSid('bugs')">Check</button>
+      </div>
+
+      <div class="sid-row">
+        <label>N</label>
+        <input id="vibe" placeholder="바이브 SID" />
+        <button onclick="checkSid('vibe')">Check</button>
+      </div>
     </section>
 
     <section class="section">
