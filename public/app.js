@@ -147,13 +147,24 @@ function addGong() {
 function makeText() {
   return gongs.map(g => {
     const lines = [];
-    lines.push(`${g.time ? '[' + g.time + '] ' : ''}${g.title}`);
+
+    if (g.time) lines.push(g.time);
+
+    lines.push('김.소.혜');
+    lines.push('');
     lines.push(g.gallery);
-    if (g.keyword) lines.push(`검색어: ${g.keyword}`);
-    if (g.sid.melon) lines.push(`M ${g.sid.melon}`);
-    if (g.sid.genie) lines.push(`G ${g.sid.genie}`);
-    if (g.sid.bugs) lines.push(`B ${g.sid.bugs}`);
-    if (g.sid.vibe) lines.push(`N ${g.sid.vibe}`);
+
+    lines.push(`총공명 : ${g.title}`);
+    lines.push('스밍 : 아.이.오.아.이 - 갑자기');
+
+    const sidParts = [];
+    if (g.sid.melon) sidParts.push(`M:${g.sid.melon}`);
+    if (g.sid.genie) sidParts.push(`G:${g.sid.genie}`);
+    if (g.sid.bugs) sidParts.push(`B:${g.sid.bugs}`);
+    if (g.sid.vibe) sidParts.push(`N:${g.sid.vibe}`);
+
+    lines.push(`SID ${sidParts.join('|')}`);
+
     return lines.join('\n');
   }).join('\n\n');
 }
