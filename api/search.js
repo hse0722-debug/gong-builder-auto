@@ -3,41 +3,61 @@ import * as cheerio from 'cheerio';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125 Safari/537.36';
 
+const SONG_DB = [
+  {
+    artist: '포레스텔라',
+    title: 'Armageddon',
+    melon: '601812679',
+    genie: '114676440',
+    bugs: '131827359',
+    vibe: '102962533'
+  }
+];
+
+function clean(text = '') {
+  return String(text).toLowerCase().replace(/\s+/g, '').replace(/[^\w가-힣]/g, '');
+}
+
+function score(query, artist, title) {
+  const q = clean(query);
+  const t = clean(`${artist} ${title}`);
+  let s = 0;
+
+  if (t.includes(q)) s += 100;
+
+  query.split(/\s+/).forEach(word => {
+    if (word && t.includes(clean(word))) s += 20;
+  });
+
+  return s;
+}
+
 async function getText(url) {
   const res = await fetch(url, {
     headers: {
       'user-agent': UA,
       'accept-language': 'ko-KR,ko;q=0.9,en-US;q=0.8'
-    },
-    redirect: 'follow'
+    }
   });
+
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return await res.text();
 }
 
-function clean(s = '') {
-  return String(s).toLowerCase().replace(/\s+/g, '').replace(/[^\w가-힣]/g, '');
-}
-
-function score(query, title, artist) {
-  const q = clean(query);
-  const text = clean(`${artist} ${title}`);
-  let n = 0;
-
-  for (const word of query.split(/\s+/).filter(Boolean)) {
-    if (text.includes(clean(word))) n += 10;
-  }
-
-  if (text.includes(q)) n += 50;
-  return n;
-}
-
-function uniqueById(list) {
-  const map = new Map();
-  list.forEach(item => {
-    if (item?.id && !map.has(item.id)) map.set(item.id, item);
-  });
-  return [...map.values()].slice(0, 10);
+function searchDb(q) {
+  return SONG_DB
+    .map(song => ({
+      source: 'DB',
+      artist: song.artist,
+      title: song.title,
+      melon: song.melon,
+      genie: song.genie,
+      bugs: song.bugs,
+      vibe: song.vibe,
+      score: score(q, song.artist, song.title)
+    }))
+    .filter(song => song.score > 0)
+    .sort((a, b) => b.score - a.score);
 }
 
 async function searchMelon(q) {
@@ -54,20 +74,29 @@ async function searchMelon(q) {
 
       if (!id) return;
 
-      const title = $(tr).find('.fc_gray, .ellipsis.rank01 a, .ellipsis a').first().text().trim() || $(tr).text().trim();
-      const artist = $(tr).find('.checkEllipsis, .ellipsis.rank02 a').first().text().trim();
+      const title =
+        $(tr).find('.ellipsis.rank01 a').first().text().trim() ||
+        $(tr).find('.fc_gray').first().text().trim();
+
+      const artist =
+        $(tr).find('.ellipsis.rank02 a').first().text().trim() ||
+        $(tr).find('.checkEllipsis').first().text().trim();
+
+      if (!title && !artist) return;
 
       list.push({
         site: 'melon',
-        id,
-        title,
         artist,
-        url: `https://www.melon.com/song/detail.htm?songId=${id}`,
-        score: score(q, title, artist)
+        title,
+        melon: id,
+        genie: '',
+        bugs: '',
+        vibe: '',
+        score: score(q, artist, title)
       });
     });
 
-    return uniqueById(list).sort((a, b) => b.score - a.score);
+    return dedupe(list, 'melon');
   } catch {
     return [];
   }
@@ -89,20 +118,24 @@ async function searchGenie(q) {
 
       if (!id) return;
 
-      const title = $(tr).find('.title, .info .title').first().text().replace('TITLE', '').trim() || $(tr).text().trim();
+      const title = $(tr).find('.title').first().text().replace('TITLE', '').trim();
       const artist = $(tr).find('.artist').first().text().trim();
+
+      if (!title && !artist) return;
 
       list.push({
         site: 'genie',
-        id,
-        title,
         artist,
-        url: `https://www.genie.co.kr/detail/songInfo?xgnm=${id}`,
-        score: score(q, title, artist)
+        title,
+        melon: '',
+        genie: id,
+        bugs: '',
+        vibe: '',
+        score: score(q, artist, title)
       });
     });
 
-    return uniqueById(list).sort((a, b) => b.score - a.score);
+    return dedupe(list, 'genie');
   } catch {
     return [];
   }
@@ -118,25 +151,28 @@ async function searchBugs(q) {
       const rowHtml = $.html(tr);
       const id =
         $(tr).attr('data-trackid') ||
-        rowHtml.match(/track\/(\d+)/)?.[1] ||
-        rowHtml.match(/trackId=(\d+)/)?.[1];
+        rowHtml.match(/track\/(\d+)/)?.[1];
 
       if (!id) return;
 
-      const title = $(tr).find('.title a').first().text().trim() || $(tr).text().trim();
+      const title = $(tr).find('.title a').first().text().trim();
       const artist = $(tr).find('.artist a').first().text().trim();
+
+      if (!title && !artist) return;
 
       list.push({
         site: 'bugs',
-        id,
-        title,
         artist,
-        url: `https://music.bugs.co.kr/track/${id}`,
-        score: score(q, title, artist)
+        title,
+        melon: '',
+        genie: '',
+        bugs: id,
+        vibe: '',
+        score: score(q, artist, title)
       });
     });
 
-    return uniqueById(list).sort((a, b) => b.score - a.score);
+    return dedupe(list, 'bugs');
   } catch {
     return [];
   }
@@ -151,18 +187,33 @@ async function searchVibe(q) {
     matches.forEach(m => {
       list.push({
         site: 'vibe',
-        id: m[1],
-        title: 'VIBE 검색결과',
         artist: '',
-        url: `https://vibe.naver.com/track/${m[1]}`,
+        title: 'VIBE 검색결과',
+        melon: '',
+        genie: '',
+        bugs: '',
+        vibe: m[1],
         score: 1
       });
     });
 
-    return uniqueById(list);
+    return dedupe(list, 'vibe');
   } catch {
     return [];
   }
+}
+
+function dedupe(list, key) {
+  const map = new Map();
+
+  list
+    .sort((a, b) => b.score - a.score)
+    .forEach(item => {
+      const id = item[key];
+      if (id && !map.has(id)) map.set(id, item);
+    });
+
+  return [...map.values()].slice(0, 5);
 }
 
 export default async function handler(req, res) {
@@ -174,6 +225,8 @@ export default async function handler(req, res) {
   const q = String(req.query.q || '').trim();
   if (!q) return res.status(400).json({ error: '검색어가 없습니다.' });
 
+  const db = searchDb(q);
+
   const [melon, genie, bugs, vibe] = await Promise.all([
     searchMelon(q),
     searchGenie(q),
@@ -183,12 +236,7 @@ export default async function handler(req, res) {
 
   res.status(200).json({
     query: q,
-    candidates: {
-      melon,
-      genie,
-      bugs,
-      vibe,
-      youtube: []
-    }
+    db,
+    live: { melon, genie, bugs, vibe }
   });
 }
