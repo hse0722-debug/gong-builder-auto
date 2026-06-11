@@ -144,37 +144,57 @@ function addGong() {
   render();
 }
 
+function dottedName(text = '') {
+  return String(text).replace(/\s+/g, '').split('').join('.');
+}
+
+function parseArtistTitle(keyword = '') {
+  const text = String(keyword).trim();
+
+  if (text.includes('-')) {
+    const [artist, ...rest] = text.split('-');
+    return {
+      artist: artist.trim(),
+      title: rest.join('-').trim()
+    };
+  }
+
+  const parts = text.split(/\s+/);
+  return {
+    artist: parts[0] || '',
+    title: parts.slice(1).join(' ')
+  };
+}
+
+function formatGong(g) {
+  const { artist, title } = parseArtistTitle(g.keyword);
+  const artistDot = dottedName(artist);
+  const titleClean = title.replace(/\s+/g, '');
+
+  const sidParts = [];
+  if (g.sid.melon) sidParts.push(`M:${g.sid.melon}`);
+  if (g.sid.genie) sidParts.push(`G:${g.sid.genie}`);
+  if (g.sid.bugs) sidParts.push(`B:${g.sid.bugs}`);
+  if (g.sid.vibe) sidParts.push(`N:${g.sid.vibe}`);
+
+  return [
+    g.time,
+    artistDot,
+    g.gallery,
+    `총공명 : ${g.title}`,
+    `스밍 : ${artistDot}-${titleClean}`,
+    `SID ${sidParts.join('|')}`
+  ].filter(Boolean).join('\n');
+}
+
 function makeText() {
-  return gongs.map(g => {
-    const lines = [];
-
-    if (g.time) lines.push(g.time);
-
-    lines.push('김.소.혜');
-    lines.push('');
-    lines.push(g.gallery);
-
-    lines.push(`총공명 : ${g.title}`);
-    lines.push('스밍 : 아.이.오.아.이 - 갑자기');
-
-    const sidParts = [];
-    if (g.sid.melon) sidParts.push(`M:${g.sid.melon}`);
-    if (g.sid.genie) sidParts.push(`G:${g.sid.genie}`);
-    if (g.sid.bugs) sidParts.push(`B:${g.sid.bugs}`);
-    if (g.sid.vibe) sidParts.push(`N:${g.sid.vibe}`);
-
-    lines.push(`SID ${sidParts.join('|')}`);
-
-    return lines.join('\n');
-  }).join('\n\n');
+  return gongs.map(g => formatGong(g)).join('\n\n');
 }
 
 function render() {
   $('list').innerHTML = gongs.map((g, i) => `
     <div class="item">
-      <b>${i + 1}. ${g.time || ''} ${g.title}</b><br>
-      <span>${g.gallery}</span><br>
-      <small>M ${g.sid.melon || '-'} / G ${g.sid.genie || '-'} / B ${g.sid.bugs || '-'} / N ${g.sid.vibe || '-'}</small><br>
+      <pre>${escapeHtml(formatGong(g))}</pre>
       <button onclick="removeGong(${i})">삭제</button>
     </div>
   `).join('');
