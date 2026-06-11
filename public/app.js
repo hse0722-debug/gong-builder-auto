@@ -1,74 +1,114 @@
 let gongs = JSON.parse(localStorage.getItem('gongs_auto') || '[]');
-let lastCandidates = null;
+let searchData = null;
 
 function $(id) { return document.getElementById(id); }
 
-function youtubeId(value) {
-  const v = (value || '').trim();
-  const m = v.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/);
-  return m ? m[1] : v;
-}
-
 async function autoSearchSid() {
   const q = $('keyword').value.trim();
-  if (!q) return alert('가수명 + 곡명을 입력하세요. 예: 포레스텔라 Armageddon');
+  if (!q) return alert('가수명 + 곡명을 입력하세요.');
 
   $('searchStatus').textContent = '검색 중입니다...';
-  $('candidateBox').innerHTML = '';
+  $('searchResults').innerHTML = '';
 
   try {
     const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || '검색 실패');
 
-    lastCandidates = data.candidates;
-    renderCandidates();
-
-    $('searchStatus').textContent = '검색 후보가 나왔습니다. 사이트별로 정확한 곡을 선택하세요.';
+    searchData = data;
+    renderSearchResults(data);
+    $('searchStatus').textContent = '원하는 곡을 선택하거나, 사이트별 SID를 체크하세요.';
   } catch (e) {
-    $('searchStatus').textContent = '자동검색 실패: ' + e.message;
+    $('searchStatus').textContent = '검색 실패: ' + e.message;
   }
 }
 
-function renderCandidates() {
-  const names = {
+function renderSearchResults(data) {
+  let html = '';
+
+  if (data.db && data.db.length) {
+    html += `<div class="result-group"><b>저장된 SID</b>`;
+    data.db.forEach((song, i) => {
+      html += resultButton(song, `selectDb(${i})`);
+    });
+    html += `</div>`;
+  }
+
+  html += `<div class="result-group"><b>실시간 검색</b>`;
+
+  const siteNames = {
     melon: 'M 멜론',
     genie: 'G 지니',
     bugs: 'B 벅스',
     vibe: 'N 바이브'
   };
 
-  let html = '';
-
   for (const site of ['melon', 'genie', 'bugs', 'vibe']) {
-    const list = lastCandidates?.[site] || [];
-
-    html += `<div class="candidate-site"><h3>${names[site]}</h3>`;
+    const list = data.live?.[site] || [];
+    html += `<div class="site-title">${siteNames[site]}</div>`;
 
     if (!list.length) {
-      html += `<p class="empty">검색 결과 없음</p>`;
-    } else {
-      html += list.map(item => `
-        <button class="candidate" onclick="selectCandidate('${site}', '${item.id}')">
-          <b>${escapeHtml(item.artist || '')}</b> - ${escapeHtml(item.title || '')}
-          <span>SID: ${item.id}</span>
-        </button>
-      `).join('');
+      html += `<div class="empty">결과 없음</div>`;
+      continue;
     }
 
-    html += `</div>`;
+    list.forEach((song, i) => {
+      html += resultButton(song, `selectLive('${site}', ${i})`);
+    });
   }
 
-  $('candidateBox').innerHTML = html;
+  html += `</div>`;
+  $('searchResults').innerHTML = html;
 }
 
-function selectCandidate(site, id) {
-  if (site === 'melon') $('melon').value = id;
-  if (site === 'genie') $('genie').value = id;
-  if (site === 'bugs') $('bugs').value = id;
-  if (site === 'vibe') $('vibe').value = id;
+function resultButton(song, action) {
+  const sid = song.melon || song.genie || song.bugs || song.vibe || '';
+  return `
+    <button class="search-item" onclick="${action}">
+      <span>${escapeHtml(song.artist || '')} - ${escapeHtml(song.title || '')}</span>
+      <small>SID ${sid}</small>
+    </button>
+  `;
+}
 
-  $('searchStatus').textContent = `${site.toUpperCase()} SID ${id} 선택됨`;
+function selectDb(i) {
+  const song = searchData.db[i];
+  fillSong(song);
+}
+
+function selectLive(site, i) {
+  const song = searchData.live[site][i];
+
+  if (song.melon) $('melon').value = song.melon;
+  if (song.genie) $('genie').value = song.genie;
+  if (song.bugs) $('bugs').value = song.bugs;
+  if (song.vibe) $('vibe').value = song.vibe;
+
+  $('keyword').value = `${song.artist || ''} ${song.title || ''}`.trim();
+  $('searchStatus').textContent = `${song.artist || ''} - ${song.title || ''} 선택됨`;
+}
+
+function fillSong(song) {
+  $('keyword').value = `${song.artist} - ${song.title}`;
+  $('melon').value = song.melon || '';
+  $('genie').value = song.genie || '';
+  $('bugs').value = song.bugs || '';
+  $('vibe').value = song.vibe || '';
+  $('searchStatus').textContent = `${song.artist} - ${song.title} SID 입력 완료`;
+}
+
+function checkSid(site) {
+  const id = $(site).value.trim();
+  if (!id) return alert('SID가 비어 있습니다.');
+
+  const urls = {
+    melon: `https://www.melon.com/song/detail.htm?songId=${id}`,
+    genie: `https://www.genie.co.kr/detail/songInfo?xgnm=${id}`,
+    bugs: `https://music.bugs.co.kr/track/${id}`,
+    vibe: `https://vibe.naver.com/track/${id}`
+  };
+
+  window.open(urls[site], '_blank');
 }
 
 function escapeHtml(str) {
@@ -90,13 +130,12 @@ function addGong() {
       melon: $('melon').value.trim(),
       genie: $('genie').value.trim(),
       bugs: $('bugs').value.trim(),
-      vibe: $('vibe').value.trim(),
-      youtube: youtubeId($('youtube').value)
+      vibe: $('vibe').value.trim()
     }
   };
 
   if (!item.gallery || !item.title) return alert('갤주소와 총공 제목은 꼭 입력하세요.');
-  if (!item.sid.melon && !item.sid.genie && !item.sid.bugs && !item.sid.vibe && !item.sid.youtube) {
+  if (!item.sid.melon && !item.sid.genie && !item.sid.bugs && !item.sid.vibe) {
     return alert('SID가 하나 이상 필요합니다.');
   }
 
@@ -106,7 +145,7 @@ function addGong() {
 }
 
 function makeText() {
-  return gongs.map((g) => {
+  return gongs.map(g => {
     const lines = [];
     lines.push(`${g.time ? '[' + g.time + '] ' : ''}${g.title}`);
     lines.push(g.gallery);
@@ -115,7 +154,6 @@ function makeText() {
     if (g.sid.genie) lines.push(`G ${g.sid.genie}`);
     if (g.sid.bugs) lines.push(`B ${g.sid.bugs}`);
     if (g.sid.vibe) lines.push(`N ${g.sid.vibe}`);
-    if (g.sid.youtube) lines.push(`Y ${g.sid.youtube}`);
     return lines.join('\n');
   }).join('\n\n');
 }
@@ -125,7 +163,7 @@ function render() {
     <div class="item">
       <b>${i + 1}. ${g.time || ''} ${g.title}</b><br>
       <span>${g.gallery}</span><br>
-      <small>M ${g.sid.melon || '-'} / G ${g.sid.genie || '-'} / B ${g.sid.bugs || '-'} / N ${g.sid.vibe || '-'} / Y ${g.sid.youtube || '-'}</small><br>
+      <small>M ${g.sid.melon || '-'} / G ${g.sid.genie || '-'} / B ${g.sid.bugs || '-'} / N ${g.sid.vibe || '-'}</small><br>
       <button onclick="removeGong(${i})">삭제</button>
     </div>
   `).join('');
