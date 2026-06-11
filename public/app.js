@@ -1,4 +1,5 @@
 let gongs = JSON.parse(localStorage.getItem('gongs_auto') || '[]');
+let lastCandidates = null;
 
 function $(id) { return document.getElementById(id); }
 
@@ -10,25 +11,73 @@ function youtubeId(value) {
 
 async function autoSearchSid() {
   const q = $('keyword').value.trim();
-  if (!q) return alert('곡명이나 가수명을 입력하세요.');
+  if (!q) return alert('가수명 + 곡명을 입력하세요. 예: 포레스텔라 Armageddon');
 
   $('searchStatus').textContent = '검색 중입니다...';
+  $('candidateBox').innerHTML = '';
+
   try {
     const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || '검색 실패');
 
-    $('melon').value = data.melon?.id || '';
-    $('genie').value = data.genie?.id || '';
-    $('bugs').value = data.bugs?.id || '';
-    $('vibe').value = data.vibe?.id || '';
-    $('youtube').value = data.youtube?.id || '';
+    lastCandidates = data.candidates;
+    renderCandidates();
 
-    const found = ['melon','genie','bugs','vibe','youtube'].filter(k => data[k]?.id).length;
-    $('searchStatus').textContent = `${found}/5개 SID를 찾았습니다. 빈칸은 직접 입력하세요.`;
+    $('searchStatus').textContent = '검색 후보가 나왔습니다. 사이트별로 정확한 곡을 선택하세요.';
   } catch (e) {
     $('searchStatus').textContent = '자동검색 실패: ' + e.message;
   }
+}
+
+function renderCandidates() {
+  const names = {
+    melon: 'M 멜론',
+    genie: 'G 지니',
+    bugs: 'B 벅스',
+    vibe: 'N 바이브'
+  };
+
+  let html = '';
+
+  for (const site of ['melon', 'genie', 'bugs', 'vibe']) {
+    const list = lastCandidates?.[site] || [];
+
+    html += `<div class="candidate-site"><h3>${names[site]}</h3>`;
+
+    if (!list.length) {
+      html += `<p class="empty">검색 결과 없음</p>`;
+    } else {
+      html += list.map(item => `
+        <button class="candidate" onclick="selectCandidate('${site}', '${item.id}')">
+          <b>${escapeHtml(item.artist || '')}</b> - ${escapeHtml(item.title || '')}
+          <span>SID: ${item.id}</span>
+        </button>
+      `).join('');
+    }
+
+    html += `</div>`;
+  }
+
+  $('candidateBox').innerHTML = html;
+}
+
+function selectCandidate(site, id) {
+  if (site === 'melon') $('melon').value = id;
+  if (site === 'genie') $('genie').value = id;
+  if (site === 'bugs') $('bugs').value = id;
+  if (site === 'vibe') $('vibe').value = id;
+
+  $('searchStatus').textContent = `${site.toUpperCase()} SID ${id} 선택됨`;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
 function addGong() {
@@ -57,7 +106,7 @@ function addGong() {
 }
 
 function makeText() {
-  return gongs.map((g, i) => {
+  return gongs.map((g) => {
     const lines = [];
     lines.push(`${g.time ? '[' + g.time + '] ' : ''}${g.title}`);
     lines.push(g.gallery);
@@ -80,12 +129,27 @@ function render() {
       <button onclick="removeGong(${i})">삭제</button>
     </div>
   `).join('');
+
   $('result').value = makeText();
 }
 
-function removeGong(i) { gongs.splice(i, 1); save(); render(); }
-function save() { localStorage.setItem('gongs_auto', JSON.stringify(gongs)); }
-function clearAll() { if (confirm('전부 삭제할까요?')) { gongs = []; save(); render(); } }
+function removeGong(i) {
+  gongs.splice(i, 1);
+  save();
+  render();
+}
+
+function save() {
+  localStorage.setItem('gongs_auto', JSON.stringify(gongs));
+}
+
+function clearAll() {
+  if (confirm('전부 삭제할까요?')) {
+    gongs = [];
+    save();
+    render();
+  }
+}
 
 async function copyResult() {
   $('result').value = makeText();
@@ -100,13 +164,17 @@ function makeImage() {
   const fontSize = 28;
   const padding = 40;
   const lines = text.split('\n');
+
   canvas.width = 1000;
   canvas.height = Math.max(400, padding * 2 + lines.length * 42);
+
   ctx.fillStyle = '#fff8ed';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#222';
   ctx.font = `${fontSize}px Arial`;
+
   lines.forEach((line, i) => ctx.fillText(line, padding, padding + i * 42));
+
   const link = $('download');
   link.href = canvas.toDataURL('image/png');
   link.download = 'gong-builder.png';
